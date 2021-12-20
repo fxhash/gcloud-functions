@@ -78,8 +78,8 @@ exports.features = async (req, res) => {
 
     let page = await browser.newPage()
     await page.setViewport({
-      width: 0,
-      height: 0
+      width: 32,
+      height: 32
     })
     await page.goto(url, {
       waitUntil: "domcontentloaded",
