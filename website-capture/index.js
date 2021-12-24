@@ -3,19 +3,64 @@ const sharp = require('sharp')
 const path = require('path')
 
 
+// CONSTANTS
+const DELAY_MIN = 0
+const DELAY_MAX = 40000
+
 const sleep = (time) => new Promise(resolve => {
   setTimeout(resolve, time)
 })
+
+const waitPreview = (triggerMode, page, delay) => new Promise(async (resolve) => {
+  let resolved = false
+  if (triggerMode === "DELAY") {
+    await sleep(delay)
+    resolve()
+  }
+  else if (triggerMode === "FN_TRIGGER") {
+    Promise.race([
+      // add event listener and wait for event to fire before returning
+      page.evaluate(function() {
+        return new Promise(function(resolve, reject) {
+          window.addEventListener("fxhash-preview", function() {
+            resolve() // resolves when the event fires
+          })
+        })
+      }),
+      sleep(DELAY_MAX)
+    ]).then(resolve)
+  }
+}) 
 
 const ERRORS = [
   "UNKNOWN",
   "HTTP_ERROR",
   "MISSING_PARAMETERS",
+  "INVALID_TRIGGER_PARAMETERS",
   "INVALID_PARAMETERS",
   "UNSUPPORTED_URL",
   "CANVAS_CAPTURE_FAILED",
   "TIMEOUT"
 ]
+
+const TRIGGER_MODES = [
+  "DELAY",
+  "FN_TRIGGER"
+]
+
+function isTriggerValid(triggerMode, delay) {
+  if (!TRIGGER_MODES.includes(triggerMode)) {
+    return false
+  }
+  if (triggerMode === "DELAY") {
+    // delay must be defined if trigger mode is delay
+    return typeof delay !== undefined && !isNaN(delay) && delay >= DELAY_MIN && delay <= DELAY_MAX
+  }
+  else if (triggerMode === "FN_TRIGGER") {
+    // fn trigger doesn't need any param
+    return true
+  }
+}
 
 /**
  * expects:
@@ -47,7 +92,12 @@ exports.capture = async (req, res) => {
     }
 
 		// get the url to capture
-    let { url, resX, resY, delay, mode, canvasSelector } = req.body
+    let { url, resX, resY, delay, mode, triggerMode, canvasSelector } = req.body
+
+    // default parameter for triggerMode
+    if (typeof triggerMode === "undefined") {
+      triggerMode = "DELAY"
+    }
 
     // check if general parameters are correct
     if (!url || !mode) {
@@ -59,10 +109,15 @@ exports.capture = async (req, res) => {
     if (!["CANVAS", "VIEWPORT", "CUSTOM".includes(mode)]) {
       throw "MISSING_PARAMETERS"
     }
+
+    // check if trigger paremeters are correct
+    if (!isTriggerValid(triggerMode, delay)) {
+      throw "INVALID_TRIGGER_PARAMETERS"
+    }
     
     // check parameters correct based on mode
     if (mode === "VIEWPORT") {
-      if (!resX || !resY || typeof delay === "undefined") {
+      if (!resX || !resY) {
         throw "MISSING_PARAMETERS"
       }
       resX = Math.round(resX)
@@ -70,12 +125,9 @@ exports.capture = async (req, res) => {
       if (isNaN(resX) || isNaN(resY) || resX < 256 || resX > 2048 || resY < 256 || resY > 2048) {
         throw "INVALID_PARAMETERS"
       }
-      if (delay < 0 || delay > 40000) {
-        throw "INVALID_PARAMETERS"
-      }
     }
     else if (mode === "CANVAS") {
-      if (!canvasSelector || isNaN(delay) || delay < 0 || delay > 40000) {
+      if (!canvasSelector) {
         throw "INVALID_PARAMETERS"
       }
     }
@@ -129,14 +181,15 @@ exports.capture = async (req, res) => {
 
     // based on the capture mode, trigger different operations
     if (mode === "VIEWPORT") {
+      await waitPreview(triggerMode, page, delay)
       // we simply take a capture of the viewport
-      await sleep(delay)
       const capture = await page.screenshot()
       result = capture
     }
     else if (mode === "CANVAS") {
       try {
-        await sleep(delay)
+        await waitPreview(triggerMode, page, delay)
+        // get the base64 image from the CANVAS targetted
         const base64 = await page.$eval(canvasSelector, (el) => {
           if (!el || el.tagName !== "CANVAS") return null
           return el.toDataURL()
