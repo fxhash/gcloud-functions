@@ -5,7 +5,7 @@ const path = require('path')
 
 // CONSTANTS
 const DELAY_MIN = 0
-const DELAY_MAX = 40000
+const DELAY_MAX = 80000
 
 const sleep = (time) => new Promise(resolve => {
   setTimeout(resolve, time)
