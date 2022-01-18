@@ -5,7 +5,7 @@ const path = require('path')
 
 // CONSTANTS
 const DELAY_MIN = 0
-const DELAY_MAX = 80000
+const DELAY_MAX = 300000
 
 const sleep = (time) => new Promise(resolve => {
   setTimeout(resolve, time)
@@ -163,7 +163,7 @@ exports.capture = async (req, res) => {
     let response
     try {
       response = await page.goto(url, {
-        timeout: 90000
+        timeout: 200000
       })
     }
     catch(err) {
