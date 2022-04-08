@@ -2,6 +2,22 @@ const chromium = require('chrome-aws-lambda')
 const sharp = require('sharp')
 const path = require('path')
 
+const SUPPORTED_URLS = [
+  "https://ipfs.io/ipfs/",
+  "https://gateway.fxhash.xyz/ipfs/",
+  "https://gateway.fxhash2.xyz/ipfs/",
+  "https://gateway.fxhash-dev.xyz/ipfs/",
+  "https://gateway.fxhash-dev2.xyz/ipfs/",
+]
+
+function isUrlValid(url) {
+  for (const supported of SUPPORTED_URLS) {
+    if (url.startsWith(supported)) {
+      return true
+    }
+  }
+  return false
+}
 
 // CONSTANTS
 const DELAY_MIN = 0
@@ -103,7 +119,7 @@ exports.capture = async (req, res) => {
     if (!url || !mode) {
       throw "MISSING_PARAMETERS"
     }
-    if (!(/^https\:\/\/ipfs\.io\/ipfs\//.test(url)) && !(/^https\:\/\/gateway\.fxhash\.xyz\/ipfs\//.test(url))) {
+    if (!isUrlValid(url)) {
       throw "UNSUPPORTED_URL"
     }
     if (!["CANVAS", "VIEWPORT", "CUSTOM".includes(mode)]) {
@@ -163,7 +179,7 @@ exports.capture = async (req, res) => {
     let response
     try {
       response = await page.goto(url, {
-        timeout: 200000
+        timeout: 300000
       })
     }
     catch(err) {

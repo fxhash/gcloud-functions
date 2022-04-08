@@ -1,6 +1,23 @@
 const chromium = require('chrome-aws-lambda')
 
 
+const SUPPORTED_URLS = [
+  "https://ipfs.io/ipfs/",
+  "https://gateway.fxhash.xyz/ipfs/",
+  "https://gateway.fxhash2.xyz/ipfs/",
+  "https://gateway.fxhash-dev.xyz/ipfs/",
+  "https://gateway.fxhash-dev2.xyz/ipfs/",
+]
+
+function isUrlValid(url) {
+  for (const supported of SUPPORTED_URLS) {
+    if (url.startsWith(supported)) {
+      return true
+    }
+  }
+  return false
+}
+
 function processRawTokenFeatures(rawFeatures) {
   const features = []
 
@@ -63,7 +80,7 @@ exports.features = async (req, res) => {
     let { url } = req.body
 
     // check if general parameters are correct
-    if (!(/^https\:\/\/ipfs\.io\/ipfs\//.test(url)) && !(/^https\:\/\/gateway\.fxhash\.xyz\/ipfs\//.test(url))) {
+    if (!isUrlValid(url)) {
       throw "UNSUPPORTED_URL"
     }
 
