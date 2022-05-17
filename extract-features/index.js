@@ -42,10 +42,10 @@ function processRawTokenFeatures(rawFeatures) {
   return features
 }
 
-function sleep(time) {
+function sleep(time, ret) {
   return new Promise((resolve) => {
     setTimeout(() => {
-      resolve()
+      resolve(ret)
     }, time)
   })
 }
@@ -66,8 +66,8 @@ exports.features = async (req, res) => {
   let browser = null
   let result = null
 
-	try {
-		// if we have an OPTIONS request, only return the headers
+  try {
+    // if we have an OPTIONS request, only return the headers
     res.header('Access-Control-Allow-Origin', '*')
     res.header('Access-Control-Allow-Headers', 'Content-Type')
 
@@ -76,7 +76,7 @@ exports.features = async (req, res) => {
       return res.status(204).send('')
     }
 
-		// get the url to capture
+    // get the url to capture
     let { url } = req.body
 
     // check if general parameters are correct
@@ -105,10 +105,10 @@ exports.features = async (req, res) => {
 
     try {
       await page.waitForSelector("body", {
-        timeout: 2000
+        timeout: 10000
       })
     }
-    catch{
+    catch {
       // // if the waitFor selector doesn't work (known issue), try that
       // try {
       //   // const isLoaded = await page.evaluate(() =>
@@ -130,9 +130,12 @@ exports.features = async (req, res) => {
     // find $fxhashFeatures in the window object
     let rawFeatures = null
     try {
-      const extractedFeatures = await page.evaluate(
-        () => JSON.stringify(window.$fxhashFeatures)
-      )
+      const extractedFeatures = await Promise.race([
+        page.evaluate(
+          () => JSON.stringify(window.$fxhashFeatures)
+        ),
+        sleep(10000, null)
+      ])
       rawFeatures = (extractedFeatures && JSON.parse(extractedFeatures)) || null
       // res.set("Content-Type", "application/json")
       // return res.status(400).send({ features: rawFeatures })
@@ -146,14 +149,14 @@ exports.features = async (req, res) => {
       const processed = processRawTokenFeatures(rawFeatures)
       result = processed
     }
-    catch {}
-	}
-	catch (error) {
+    catch { }
+  }
+  catch (error) {
     // todo: remove for prod
     throw error
     res.set("Content-Type", "application/json")
     return res.status(400).send({ error: error })
-	}
+  }
   finally {
     if (browser !== null) {
       browser.close()
@@ -162,5 +165,5 @@ exports.features = async (req, res) => {
 
   // let message = req.query.message || req.body.message || 'Hello World 2!'
   res.set("Content-Type", "application/json")
-  return res.status(200).send(result||[])
+  return res.status(200).send(result || [])
 }
